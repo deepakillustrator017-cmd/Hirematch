@@ -5,13 +5,13 @@ Static HTML, CSS, and vanilla JavaScript hiring platform. Vercel serves the proj
 ## Supabase setup
 
 1. In the Supabase SQL Editor, review and run [`supabase/schema.sql`](supabase/schema.sql). It creates/extends application tables, row-level security policies, and the private `resumes` plus public `logos` and `avatars` buckets. Back up production data before applying schema changes.
-2. In Authentication → URL Configuration, set the production site URL to `https://hireinai.in` and add `https://hireinai.in/**`, `https://www.hireinai.in/**`, and the local development URL to the redirect allow list. Enable email/password and configure email verification templates.
-3. To enable Google sign-in, configure the Google OAuth client in Supabase Authentication → Providers and add the Supabase callback URL in Google Cloud Console.
+2. In Authentication → URL Configuration, set the production site URL to `https://hireinai.in` and add `https://hireinai.in/**`, `https://www.hireinai.in/**`, `http://localhost:8000/**`, and `http://127.0.0.1:8000/**` to the redirect allow list. Enable email/password and configure email verification templates.
+3. To enable Google sign-in, configure the Google OAuth client in Supabase Authentication → Providers and add `https://xyazcbtxuahzrkxdzywy.supabase.co/auth/v1/callback` to Google Cloud Console's authorized redirect URIs.
 4. Assign recruiter/admin roles only to verified accounts from the SQL Editor. Example: `update public.profiles p set role = 'recruiter' from auth.users u where p.user_id = u.id and u.email = 'verified@example.com';`
 
 ## AI function
 
-Deploy `supabase/functions/ai-assistant` with the Supabase CLI linked to the production project. Set `OPENAI_API_KEY` as a Supabase Function secret; optionally configure `OPENAI_MODEL` and comma-separated `AI_ALLOWED_ORIGINS`. The model key stays server-side and is never included in the static frontend. Without the secret, resume writing actions show a setup message and ATS still provides its local keyword analysis.
+With the Supabase CLI linked to this project, deploy the function using `supabase functions deploy ai-assistant`; set the provider key with `supabase secrets set OPENAI_API_KEY=...`. Optionally configure `OPENAI_MODEL` and comma-separated `AI_ALLOWED_ORIGINS`. The model key stays server-side and is never included in the static frontend. Without the secret, resume writing actions show a setup message and ATS still provides its local keyword analysis.
 
 ## Vercel
 

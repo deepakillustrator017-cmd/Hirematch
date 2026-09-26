@@ -552,7 +552,7 @@ h4 {
   height: 35px;
   display: inline-block;
   animation: spinner 1.2s infinite ease-in-out;
-  background: url(../imgs/favicon.svg);
+  background: url(../imgs/theme/favicon.svg);
   box-shadow: 0 0 10px #fff;
 }
 @keyframes spinner {

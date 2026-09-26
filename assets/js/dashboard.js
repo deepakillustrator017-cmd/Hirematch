@@ -5,8 +5,10 @@
   var profile=await api.getProfile(user.id);
   document.getElementById("userName").textContent=(profile.data&&profile.data.full_name)||user.email||"Candidate";
   var profileForm=document.getElementById("profileForm"),profileData=await client.from("profiles").select("full_name,phone").eq("user_id",user.id).maybeSingle();
+  var hasPhone=true;
+  if(profileData.error&&(profileData.error.code==="PGRST204"||profileData.error.code==="42703"||/phone.*column|column.*phone/i.test(profileData.error.message||""))){hasPhone=false;profileData=await client.from("profiles").select("full_name").eq("user_id",user.id).maybeSingle();}
   if(profileData.data){profileForm.elements.full_name.value=profileData.data.full_name||"";profileForm.elements.phone.value=profileData.data.phone||"";}
-  profileForm.addEventListener("submit",async function(event){event.preventDefault();var values=new FormData(profileForm),save=await client.from("profiles").update({full_name:String(values.get("full_name")).trim(),phone:String(values.get("phone")).trim()||null}).eq("user_id",user.id);if(save.error){api.showMessage(notice,"Could not save profile: "+save.error.message,"error");return;}document.getElementById("userName").textContent=String(values.get("full_name")).trim()||user.email;api.showMessage(notice,"Profile saved.","success");});
+  profileForm.addEventListener("submit",async function(event){event.preventDefault();var values=new FormData(profileForm),changes={full_name:String(values.get("full_name")).trim()};if(hasPhone)changes.phone=String(values.get("phone")).trim()||null;var save=await client.from("profiles").update(changes).eq("user_id",user.id);if(save.error){api.showMessage(notice,"Could not save profile: "+save.error.message,"error");return;}document.getElementById("userName").textContent=String(values.get("full_name")).trim()||user.email;api.showMessage(notice,"Profile saved.","success");});
   var appRes=await client.from("applications").select("id,status,applied_at,resume_url,jobs!applications_job_id_fkey(title,company)").eq("user_id",user.id).order("id",{ascending:false});
   if(appRes.error)api.showMessage(notice,"Could not load applications: "+appRes.error.message,"error");
   var apps=appRes.data||[],applicationPaths=new Set(apps.map(function(item){return item.resume_url;}).filter(Boolean));

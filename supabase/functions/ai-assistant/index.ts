@@ -27,7 +27,7 @@ function json(body: unknown, status = 200, origin = "null") {
 
 function permittedOrigin(origin: string | null) {
   if (!origin) return "*";
-  const configured = (Deno.env.get("AI_ALLOWED_ORIGINS") || "https://hireinai.in,https://www.hireinai.in,http://localhost:3000,http://127.0.0.1:3000").split(",").map((item) => item.trim());
+  const configured = (Deno.env.get("AI_ALLOWED_ORIGINS") || "https://hireinai.in,https://www.hireinai.in,http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000").split(",").map((item) => item.trim());
   return configured.includes(origin) ? origin : null;
 }
 

@@ -27,6 +27,12 @@
       if (!result.data) throw new Error("This job is no longer available.");
       var job = result.data;
       var company = {};
+      if (job.company_id) {
+        try {
+          var companyResult = await client.from("companies").select("name,description,website,logo_url,location").eq("id", job.company_id).maybeSingle();
+          if (!companyResult.error && companyResult.data) company = companyResult.data;
+        } catch (_) { /* Company profiles are optional until the schema migration is applied. */ }
+      }
       var logo = job.logo || "/assets/imgs/theme/jobhub-logo.svg";
       var image = document.getElementById("jobLogo");
       image.src = /^https?:\/\//i.test(logo) ? logo : /^\/?assets\/[\w./-]+$/i.test(logo) ? "/" + logo.replace(/^\//, "") : "/assets/imgs/theme/jobhub-logo.svg";
@@ -48,7 +54,7 @@
       var metadata = [job.location || "Remote", job.work_mode || (/remote/i.test(job.location || "") ? "Remote" : "Onsite"), job.experience, job.employment_type || job.type || "Full time", job.posted_at ? "Posted " + new Date(job.posted_at).toLocaleDateString("en-IN") : "Recently posted"].filter(Boolean);
       document.getElementById("jobMeta").innerHTML = metadata.map(function (value) { return "<span>" + escape(value) + "</span>"; }).join("");
       setText("jobSalary", job.salary || "Salary not listed");
-      setText("companyInfo", company.description || ((job.company || company.name || "The employer") + " is hiring through HireIn AI."));
+      setText("companyInfo", [company.description || ((job.company || company.name || "The employer") + " is hiring through HireIn AI."), company.website && "Website: " + company.website, company.location && "Location: " + company.location].filter(Boolean).join("\n"));
       document.getElementById("applyNow").href = "/apply?id=" + encodeURIComponent(job.id);
       document.title = (job.title || "Job details") + " at " + (job.company || company.name || "HireIn AI") + " | HireIn AI";
       document.querySelector("meta[name=description]").content = String(job.description || "Apply to " + job.title + " at " + job.company + " on HireIn AI.").slice(0, 160);

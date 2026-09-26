@@ -6,6 +6,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null default '',
+  email text,
   role text not null default 'candidate' check (role in ('candidate', 'recruiter', 'admin')),
   phone text,
   avatar_url text,
@@ -14,8 +15,10 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles add column if not exists phone text;
+alter table public.profiles add column if not exists email text;
 alter table public.profiles add column if not exists avatar_url text;
 alter table public.profiles add column if not exists updated_at timestamptz not null default now();
+update public.profiles p set email = u.email from auth.users u where p.user_id = u.id and p.email is distinct from u.email;
 
 create table if not exists public.companies (
   id uuid primary key default gen_random_uuid(),
@@ -201,8 +204,8 @@ create or replace function public.handle_new_hirein_user()
 returns trigger language plpgsql security definer set search_path = public
 as $$
 begin
-  insert into public.profiles(user_id, full_name, role)
-  values(new.id, coalesce(new.raw_user_meta_data->>'full_name', ''), 'candidate')
+  insert into public.profiles(user_id, full_name, email, role)
+  values(new.id, coalesce(new.raw_user_meta_data->>'full_name', ''), new.email, 'candidate')
   on conflict (user_id) do nothing;
   return new;
 end;
@@ -211,6 +214,19 @@ drop trigger if exists on_hirein_auth_user_created on auth.users;
 create trigger on_hirein_auth_user_created after insert on auth.users
 for each row execute procedure public.handle_new_hirein_user();
 
+create or replace function public.sync_hirein_profile_email()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+begin
+  update public.profiles set email = new.email where user_id = new.id;
+  return new;
+end;
+$$;
+drop trigger if exists on_hirein_auth_email_changed on auth.users;
+create trigger on_hirein_auth_email_changed after update of email on auth.users
+for each row when (old.email is distinct from new.email)
+execute procedure public.sync_hirein_profile_email();
+
 create or replace function public.prevent_self_role_change()
 returns trigger language plpgsql set search_path = public
 as $$
@@ -218,6 +234,10 @@ begin
   if auth.uid() is not null and new.role is distinct from old.role
      and not public.hirein_has_role(array['admin']) then
     raise exception 'Only an administrator can change account roles';
+  end if;
+  if auth.uid() is not null and new.email is distinct from old.email
+     and not public.hirein_has_role(array['admin']) then
+    raise exception 'Account email must be changed through authentication settings';
   end if;
   new.updated_at := now();
   return new;
@@ -286,7 +306,9 @@ using (public.hirein_has_role(array['admin']) or (created_by = auth.uid() and pu
 
 drop policy if exists hirein_apps_candidate_insert on public.applications;
 create policy hirein_apps_candidate_insert on public.applications for insert to authenticated
-with check (user_id = auth.uid());
+with check (user_id = auth.uid() and
+  (resume_path is null or split_part(resume_path, '/', 1) = auth.uid()::text) and
+  (resume_url is null or (resume_path is null and split_part(resume_url, '/', 1) = auth.uid()::text) or resume_url = resume_path));
 drop policy if exists hirein_apps_candidate_read on public.applications;
 create policy hirein_apps_candidate_read on public.applications for select to authenticated
 using (user_id = auth.uid() or public.hirein_has_role(array['admin']) or

@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   var form = document.getElementById("resumeForm");
   if (!client || !form) return;
   var notice = document.getElementById("resumeMessage");
+  function missingColumn(error) { return error && (error.code === "PGRST204" || error.code === "42703" || /column .* does not exist|could not find the .* column/i.test(error.message || "")); }
   var userResult = await client.auth.getUser(), user = userResult.data && userResult.data.user;
   if (!user) {
     api.showMessage(notice, "Sign in to save your resume and use AI writing tools.", "error");
@@ -80,11 +81,16 @@ document.addEventListener("DOMContentLoaded", async function () {
     render(); button.disabled = true; api.showMessage(notice,"Generating PDF and saving it to your dashboard…","");
     var path = user.id+"/builder/"+crypto.randomUUID()+".pdf", fileName = (form.elements.resume_name.value.trim() || "HireIn-AI-resume").replace(/[^a-zA-Z0-9_-]/g,"-")+".pdf";
     try {
-      var blob = await window.html2pdf().set({margin:10,filename:fileName,image:{type:"jpeg",quality:0.98},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},pagebreak:{mode:["css","legacy"]}}).from(document.getElementById("resumePreview")).outputPdf("blob");
+      var previewNode=document.getElementById("resumePreview"),previousWidth=previewNode.style.width,blob;
+      previewNode.style.width="794px";
+      try { blob = await window.html2pdf().set({margin:10,filename:fileName,image:{type:"jpeg",quality:0.98},html2canvas:{scale:2,useCORS:true,windowWidth:794},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},pagebreak:{mode:["css","legacy"]}}).from(previewNode).outputPdf("blob"); }
+      finally { previewNode.style.width=previousWidth; }
       var upload = await client.storage.from("resumes").upload(path,blob,{contentType:"application/pdf",upsert:false}); if (upload.error) throw upload.error;
-      var row = await client.from("resumes").insert({user_id:user.id,name:fileName,storage_path:path,pdf_url:path,template:form.elements.template.value,resume_data:d});
+      var resumeRow={user_id:user.id,name:fileName,storage_path:path,pdf_url:path,template:form.elements.template.value,resume_data:d};
+      var row = await client.from("resumes").insert(resumeRow);
+      if(row.error&&missingColumn(row.error)){delete resumeRow.pdf_url;delete resumeRow.template;delete resumeRow.resume_data;row=await client.from("resumes").insert(resumeRow);}
       if (row.error) { await client.storage.from("resumes").remove([path]); throw row.error; }
-      var link = document.createElement("a"); link.href=URL.createObjectURL(blob); link.download=fileName; link.click(); URL.revokeObjectURL(link.href);
+      var link = document.createElement("a"),downloadUrl=URL.createObjectURL(blob); link.href=downloadUrl; link.download=fileName; link.click(); setTimeout(function(){URL.revokeObjectURL(downloadUrl);},1000);
       api.showMessage(notice,"PDF downloaded and saved to your dashboard.","success");
     } catch (error) { api.showMessage(notice,error.message || "Could not save the PDF.","error"); } finally { button.disabled=false; }
   });

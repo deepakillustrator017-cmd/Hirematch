@@ -17,5 +17,17 @@
       return data;
     });
   }
-  window.HireInAIService = { request: request, actions: ACTIONS };
+  function action(name) { return function (input) { return request(name, input); }; }
+  window.HireInAIService = {
+    request: request,
+    actions: ACTIONS,
+    generateSummary: action("generateSummary"),
+    improveExperience: action("improveExperience"),
+    generateAchievements: action("generateAchievements"),
+    grammarCorrection: action("grammarCorrection"),
+    atsOptimize: action("atsOptimize"),
+    extractKeywords: action("extractKeywords"),
+    calculateATS: action("calculateATS"),
+    suggestSkills: action("suggestSkills")
+  };
 })();

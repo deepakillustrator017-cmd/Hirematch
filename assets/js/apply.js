@@ -36,7 +36,7 @@ document.addEventListener("DOMContentLoaded",async function(){
       email:String(values.get("email")).trim(),phone:String(values.get("phone")).trim(),
       portfolio:String(values.get("portfolio")).trim()||null,
       cover_letter:String(values.get("cover_letter")).trim()||null,
-      resume_url:path,resume_path:path,status:"Applied"
+      resume_url:path,status:"Applied"
     });
     if(application.error){
       if(newResumeId){await client.from("resumes").delete().eq("id",newResumeId);await client.storage.from("resumes").remove([uploadedPath]);}
